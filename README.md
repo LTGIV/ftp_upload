@@ -14,7 +14,7 @@ The FTP_Upload software takes care of transferring these image files to the serv
 
 Program is traditionally installed in directory /ftp_upload
 
-- localsetting.py contains the settings that are particular to your installation - you should localize this file, you should not change the file ftp_upload.py
+- localsettings.ini contains the settings that are particular to your installation - you should localize this file, you should not change the file ftp_upload.py
 
 In the following example the paths for setup on Raspberry Pi (PiGuard) is used.
 - set the incoming_location to /home/pi/images.incoming
