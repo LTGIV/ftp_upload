@@ -3,7 +3,8 @@
 # Copyright (C) 2013-2014 Neighborhood Guard, Inc.  All rights reserved.
 # Original author: Jesper Jurcenoks
 # Maintained by the Neighborhood Guard development team
-#
+# Modifications: Louis T. Getterman IV (@LTGIV) / GotGetLLC.com / opensour.cc
+# 
 # This file is part of FTP_Upload.
 #
 # FTP_Upload is free software: you can redistribute it and/or modify
@@ -20,6 +21,8 @@
 # along with FTP_Upload.  If not, see <http://www.gnu.org/licenses/>.
 #
 ################################################################################
+
+
 
 ######################################################################################
 #                                                                                    #
@@ -48,14 +51,19 @@ import platform
 import subprocess
 import string
 
-# Local library part of ftp_upload
-import localsettings
+# Parse settings
+from configobj import ConfigObj
+localsettings						=	ConfigObj( 'localsettings.ini' ) # pip install configobj
+localsettings['incoming_location']	=	localsettings['incoming_location'].replace( '%BASE_LOCATION%', localsettings['base_location'] )
+localsettings['processed_location']	=	localsettings['processed_location'].replace( '%BASE_LOCATION%', localsettings['base_location'] )
+localsettings['sleep_upload']		=	float( localsettings['sleep_upload'] )
+localsettings['retain_days']		=	int( localsettings['retain_days'] )
 
 # 3rd Party libraries not part of default Python and needs to be installed
-if localsettings.use_sftp==True:
+if localsettings['use_sftp']==True:
     import pysftp # pip install pysftp 
 
-version_string = "1.7.0"
+version_string = "1.7.1"
 
 current_priority_threads=0 # global variable shared between threads keeping track of running priority threads.
 
@@ -79,7 +87,7 @@ def change_create_server_dir(server_connection, dirname):
     # dirname is relative or absolute
     
     if server_connection != None:
-        if localsettings.use_sftp == True:
+        if localsettings['use_sftp'] == True:
             try:
                 server_connection.cwd(dirname)
             except IOError, e :
@@ -139,14 +147,14 @@ def get_daydirs(location):
 def connect_to_server():
     logging.debug("FTP_UPLOAD:Starting connect_to_server()")
     server_connection = None
-    if localsettings.use_sftp==True:
+    if localsettings['use_sftp']==True:
         # SFTP Version
         try:
-            server_connection = pysftp.Connection(localsettings.ftp_server, username=localsettings.ftp_username,password=localsettings.ftp_password)
-            logging.debug("FTP_UPLOAD: Connected to %s", localsettings.ftp_server)
+            server_connection = pysftp.Connection( localsettings['ftp_server'], username=localsettings['ftp_username'], password=localsettings['ftp_password'] )
+            logging.debug("FTP_UPLOAD: Connected to %s", localsettings['ftp_server'])
             logging.debug("FTP_UPLOAD:current directory is: %s", server_connection.pwd)
-            logging.debug("FTP_UPLOAD:changing directory to: %s", localsettings.ftp_destination)
-            server_connection.cwd(localsettings.ftp_destination)
+            logging.debug("FTP_UPLOAD:changing directory to: %s", localsettings['ftp_destination'])
+            server_connection.cwd(localsettings['ftp_destination'])
             logging.debug("FTP_UPLOAD:current directory is: %s", server_connection.pwd)
         except SSHExection, e:
             if e=="Error reading SSH protocol banner" :
@@ -168,18 +176,18 @@ def connect_to_server():
     else:
         # FTP Version
         try:
-            server_connection = ftplib.FTP(localsettings.ftp_server,localsettings.ftp_username,localsettings.ftp_password,timeout=30)
+            server_connection = ftplib.FTP(localsettings['ftp_server'],localsettings['ftp_username'],localsettings['ftp_password'],timeout=30)
             logging.debug(server_connection.getwelcome())
             logging.debug("FTP_UPLOAD:current directory is: %s", server_connection.pwd())
-            logging.debug("FTP_UPLOAD:changing directory to: %s", localsettings.ftp_destination)
-            server_connection.cwd(localsettings.ftp_destination)
+            logging.debug("FTP_UPLOAD:changing directory to: %s", localsettings['ftp_destination'])
+            server_connection.cwd(localsettings['ftp_destination'])
             logging.debug("FTP_UPLOAD:current directory is: %s", server_connection.pwd())
         except ftplib.error_perm, e:
             logging.error("FTP_UPLOAD:Failed to open FTP connection, %s", e)
             server_connection = None
-            message = "Sleeping " + str(localsettings.sleep_err_seconds/60) + " minutes before trying again"
+            message = "Sleeping " + str(localsettings['sleep_err_seconds']/60) + " minutes before trying again"
             logging.info(message)
-            time.sleep(localsettings.sleep_err_seconds)
+            time.sleep(localsettings['sleep_err_seconds'])
         except Exception, e:
             logging.error("FTP_UPLOAD:Unexpected exception in connect_to_server():")
             logging.exception(e)
@@ -193,7 +201,7 @@ def connect_to_server():
 def quit_server(server_connection):
     logging.debug("FTP_UPLOAD:Starting quit_server()")
     if server_connection != None :
-        if localsettings.use_sftp==True:
+        if localsettings['use_sftp']==True:
             # SFTP Version
             try:
                 server_connection.close()
@@ -221,7 +229,7 @@ def putfile(server_connection, ftp_dir, filepath, filename):
     change_create_server_dir(server_connection, ftp_dir)
     logging.info("FTP_UPLOAD:Uploading %s", filepath)
     try:
-        if localsettings.use_sftp==True:
+        if localsettings['use_sftp']==True:
             server_connection.put(filepath, remotepath=ftp_dir+"/"+filename, preserve_mtime=True)
         else:
             filehandle = open(filepath, "rb")
@@ -276,16 +284,16 @@ def storefile(ftp_dir, filepath, donepath, filename, today):
                 logging.exception(e)
 
         else:
-            message = "Sleeping " + str(localsettings.sleep_err_seconds/60) + " minutes before trying again"
+            message = "Sleeping " + str(localsettings['sleep_err_seconds']/60) + " minutes before trying again"
             logging.info(message)
-            time.sleep(localsettings.sleep_err_seconds)
+            time.sleep(localsettings['sleep_err_seconds'])
                 
         quit_server(server_connection)
     
     else :
-        message = "Sleeping " + str(localsettings.sleep_err_seconds/60) + " minutes before trying again - general error"
+        message = "Sleeping " + str(localsettings['sleep_err_seconds']/60) + " minutes before trying again - general error"
         logging.info(message)
-        time.sleep(localsettings.sleep_err_seconds)
+        time.sleep(localsettings['sleep_err_seconds'])
     # end if
 
     if today :
@@ -318,7 +326,7 @@ def storedir(dirpath, ftp_dir, done_dir, today):
             current_threads = threading.active_count()
             logging.info("FTP_UPLOAD:current threads: %s", current_threads)
 
-            if (current_threads >= localsettings.max_threads) or (not today and current_priority_threads>=localsettings.reserved_priority_threads):
+            if (current_threads >= localsettings['max_threads']) or (not today and current_priority_threads>=localsettings['reserved_priority_threads']):
                 # to many threads running already, upload ftp in current thread (don't move forward until upload is done)
                 storefile(ftp_dir, filepath, donepath, filename, today)
                 current_threads = threading.active_count()
@@ -355,7 +363,7 @@ def deltree(deldir):
             rmdir(filepath)
         else:
             logging.info("FTP_UPLOAD:deleting %s", filepath)
-            if localsettings.delete == False :
+            if localsettings['delete'] == False :
                 logging.info("FTP_UPLOAD:would have deleted %s here - to really delete change delete flag to True", filepath)
             else :
                 os.remove(filepath)
@@ -368,9 +376,9 @@ def purge_old_images(purge_dir):
     global files_purged
     # Purge directories in Purge_dir, does not delete purge_dir itself
     purge_daydirs=get_daydirs(purge_dir)
-    logging.debug("FTP_UPLOAD:list of directories to be purged: %s", purge_daydirs[0:-localsettings.retain_days])
+    logging.debug("FTP_UPLOAD:list of directories to be purged: %s", purge_daydirs[ 0:-localsettings['retain_days'] ])
     files_purged = False
-    for purge_daydir in purge_daydirs[0:-localsettings.retain_days]:
+    for purge_daydir in purge_daydirs[0:-localsettings['retain_days']]:
         (dirpath, unused_direc) = purge_daydir
         logging.info("FTP_UPLOAD:purging directory %s", dirpath)
         deltree(dirpath)
@@ -391,8 +399,8 @@ def storeday(daydir, today=False):
     try:
         (dirpath, direc) = daydir
         logging.info("FTP_UPLOAD:processing directory %s", direc)
-        ftp_dir = localsettings.ftp_destination + "/" + direc
-        done_dir = os.path.join(localsettings.processed_location, direc)
+        ftp_dir = localsettings['ftp_destination'] + "/" + direc
+        done_dir = os.path.join(localsettings['processed_location'], direc)
         storedir(dirpath, ftp_dir, done_dir, today)
     except Exception, e:
         logging.exception(e)
@@ -436,8 +444,8 @@ def set_up_logging():
         # set up the rotating log file handler
         #
         logfile = logging.handlers.TimedRotatingFileHandler('ftp_upload.log', 
-                when='midnight', backupCount=localsettings.logfile_max_days)
-        logfile.setLevel(localsettings.logfile_log_level)
+                when='midnight', backupCount=localsettings['logfile_max_days'])
+        logfile.setLevel( localsettings['logfile_log_level'] )
         logfile.setFormatter(logging.Formatter(
                 '%(asctime)s %(levelname)-8s %(threadName)-10s %(message)s',
                 '%m-%d %H:%M:%S'))
@@ -446,7 +454,7 @@ def set_up_logging():
         # define a Handler which writes messages equal to or greater than
         # console_log_level to the sys.stderr
         console = logging.StreamHandler()
-        console.setLevel(localsettings.console_log_level)
+        console.setLevel( localsettings['console_log_level'] )
         # set a format which is simpler for console use
         formatter = logging.Formatter('%(levelname)-8s %(message)s')
         # tell the handler to use this format
@@ -485,7 +493,7 @@ def continous_upload():
     signal.signal(signal.SIGINT, sighandler)    # dump thread stacks on Ctl-C
     logging.info("FTP_UPLOAD:Program Started, version %s", version_string)
     try:
-        mkdir(localsettings.processed_location)
+        mkdir(localsettings['processed_location'])
         # Setup the threads, don't actually run them yet used to test if the threads are alive.
         processtoday_thread = threading.Thread(target=storeday, args=())
         process_previous_days_thread = threading.Thread(target=storedays, args=())
@@ -495,7 +503,7 @@ def continous_upload():
         
         while True:
             
-            daydirs = get_daydirs(localsettings.incoming_location)
+            daydirs = get_daydirs(localsettings['incoming_location'])
             
             #reverse sort the days so that today is first
             daydirs = sorted(daydirs, reverse=True)
@@ -522,14 +530,14 @@ def continous_upload():
 
 
             if not purge_thread.is_alive():
-                purge_thread = threading.Thread(target=purge_old_images, args=(localsettings.processed_location,))
+                purge_thread = threading.Thread(target=purge_old_images, args=(localsettings['processed_location'],))
                 purge_thread.start()
                     
             
             logging.info("FTP_UPLOAD:Sleeping 1 minute for upload")
-            logging.info("FTP_UPLOAD:Time is %s", time.ctime() )          
+            logging.info("FTP_UPLOAD:Time is %s", time.ctime() )
             try:
-                 time.sleep(localsettings.sleep_upload) # sleep
+                 time.sleep( localsettings['sleep_upload'] ) # sleep
                 
             # hitting Ctl-C to dump the thread stacks will interrupt
             # MainThread's sleep and raise IOError, so catch it here
@@ -638,10 +646,10 @@ def status():
     cameraconnection=ping("camera") #put a line in the hostfile to point camera at the camera's ip address
     wificonnection=ping(get_gateway_ip())
     internetconnection=ping("www.google.com")
-    dreamhostconnection=ping(localsettings.ftp_server)
+    dreamhostconnection=ping(localsettings['ftp_server'])
     
-    daycount=len(os.listdir(localsettings.incoming_location))
-    imagecount=sum([len(files) for r, d, files in os.walk(localsettings.incoming_location)])
+    daycount=len(os.listdir(localsettings['incoming_location']))
+    imagecount=sum([len(files) for r, d, files in os.walk(localsettings['incoming_location'])])
      
     freedisk=get_free_disk()
      
@@ -662,7 +670,7 @@ def status():
     statusfile.write(statusstr)
     statusfile.close()
     
-    ftp_dir = localsettings.ftp_destination + "/status/" + hostname
+    ftp_dir = localsettings['ftp_destination'] + "/status/" + hostname
     
     server_connection = connect_to_server()
     if server_connection != None:

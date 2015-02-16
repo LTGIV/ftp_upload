@@ -33,11 +33,12 @@ set the destination directory on the cloud ftp server.
 
 
 ### Known Problem ###
-Will fill up the disk under certain circumstances 
-- No mechanism to reduce retained images if disk is approaching full
-- No mechanism to reduce intake of new images, purge old not uploaded images if upload is unavailable.
-No alerting of exceptions - fail silently.
-Insecure upload using ftp (password in clear text) 
+- Will fill up the disk under certain circumstances 
+  - No mechanism to reduce retained images if disk is approaching full
+  - No mechanism to reduce intake of new images, purge old not uploaded images if upload is unavailable.
+- No alerting of exceptions - fail silently.
+- Insecure upload using ftp (password in clear text) 
+- Keyboard interrupt doesn't kill all threads, and thread.join() is needed.
 
 ###License###
 
